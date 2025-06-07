@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { otpService } from '../services';
 
 interface SMSOTPVerificationProps {
   doctorPhone: string;
@@ -18,18 +19,14 @@ const SMSOTPVerification = ({ doctorPhone, onVerified, onCancel }: SMSOTPVerific
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(300); // 5 minutes
   const [canResend, setCanResend] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Mock OTP for demo - in real app this would be sent via SMS
-  const mockOTP = '123456';
+  useEffect(() => {
+    sendInitialOTP();
+  }, []);
 
   useEffect(() => {
-    // Send initial SMS
-    toast({
-      title: "SMS OTP Sent",
-      description: `Verification code sent to ${doctorPhone}. For demo purposes, use: ${mockOTP}`,
-    });
-
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -41,7 +38,28 @@ const SMSOTPVerification = ({ doctorPhone, onVerified, onCancel }: SMSOTPVerific
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [doctorPhone, toast]);
+  }, [countdown]);
+
+  const sendInitialOTP = async () => {
+    try {
+      const response = await otpService.sendOTP({
+        phoneNumber: doctorPhone,
+        type: 'prescription_verification'
+      });
+      setSessionId(response.sessionId);
+      
+      toast({
+        title: "SMS OTP Sent",
+        description: `Verification code sent to ${doctorPhone}. For demo purposes, use: 123456`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send OTP. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -59,11 +77,25 @@ const SMSOTPVerification = ({ doctorPhone, onVerified, onCancel }: SMSOTPVerific
       return;
     }
 
+    if (!sessionId) {
+      toast({
+        title: "Error",
+        description: "No active OTP session. Please request a new code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsVerifying(true);
 
-    // Mock verification
-    setTimeout(() => {
-      if (otp === mockOTP) {
+    try {
+      const isValid = await otpService.verifyOTP({
+        phoneNumber: doctorPhone,
+        code: otp,
+        sessionId
+      });
+
+      if (isValid) {
         onVerified();
       } else {
         toast({
@@ -72,19 +104,40 @@ const SMSOTPVerification = ({ doctorPhone, onVerified, onCancel }: SMSOTPVerific
           variant: "destructive",
         });
       }
+    } catch (error) {
+      toast({
+        title: "Verification Failed",
+        description: "Unable to verify OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsVerifying(false);
-    }, 1000);
+    }
   };
 
-  const handleResendOTP = () => {
-    setCountdown(300);
-    setCanResend(false);
-    setOtp('');
-    
-    toast({
-      title: "OTP Resent",
-      description: `New verification code sent to ${doctorPhone}. For demo purposes, use: ${mockOTP}`,
-    });
+  const handleResendOTP = async () => {
+    try {
+      if (sessionId) {
+        await otpService.resendOTP(sessionId);
+      } else {
+        await sendInitialOTP();
+      }
+      
+      setCountdown(300);
+      setCanResend(false);
+      setOtp('');
+      
+      toast({
+        title: "OTP Resent",
+        description: `New verification code sent to ${doctorPhone}. For demo purposes, use: 123456`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend OTP. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

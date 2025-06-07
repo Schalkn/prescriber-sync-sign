@@ -1,75 +1,40 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, X } from "lucide-react";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  unitPrice: number;
-  vatRate: number;
-  quantityOnHand: number;
-  quantity: number;
-  repeatFrequency: string;
-  dosageInstructions: string;
-}
+import { productService, Product, PrescriptionProduct } from '../services';
 
 interface ProductSelectionProps {
-  selectedProducts: Product[];
-  onProductsChange: (products: Product[]) => void;
+  selectedProducts: PrescriptionProduct[];
+  onProductsChange: (products: PrescriptionProduct[]) => void;
 }
-
-// Mock products from Xero
-const mockProducts = [
-  {
-    id: '1',
-    name: 'Paracetamol 500mg',
-    description: 'Pain relief and fever reducer',
-    unitPrice: 25.50,
-    vatRate: 15,
-    quantityOnHand: 100
-  },
-  {
-    id: '2',
-    name: 'Amoxicillin 250mg',
-    description: 'Antibiotic for bacterial infections',
-    unitPrice: 45.00,
-    vatRate: 15,
-    quantityOnHand: 75
-  },
-  {
-    id: '3',
-    name: 'Ibuprofen 400mg',
-    description: 'Anti-inflammatory pain reliever',
-    unitPrice: 32.75,
-    vatRate: 15,
-    quantityOnHand: 200
-  },
-  {
-    id: '4',
-    name: 'Omeprazole 20mg',
-    description: 'Proton pump inhibitor for acid reflux',
-    unitPrice: 78.90,
-    vatRate: 15,
-    quantityOnHand: 50
-  }
-];
 
 const ProductSelection = ({ selectedProducts, onProductsChange }: ProductSelectionProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const filteredProducts = mockProducts.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    loadProducts();
+  }, [searchTerm]);
 
-  const addProduct = (product: typeof mockProducts[0]) => {
-    const newProduct: Product = {
+  const loadProducts = async () => {
+    setIsLoading(true);
+    try {
+      const products = await productService.searchProducts({ query: searchTerm });
+      setAvailableProducts(products);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addProduct = (product: Product) => {
+    const newProduct: PrescriptionProduct = {
       ...product,
       quantity: 1,
       repeatFrequency: 'Once',
@@ -83,7 +48,7 @@ const ProductSelection = ({ selectedProducts, onProductsChange }: ProductSelecti
     onProductsChange(updatedProducts);
   };
 
-  const updateProduct = (index: number, field: keyof Product, value: any) => {
+  const updateProduct = (index: number, field: keyof PrescriptionProduct, value: any) => {
     const updatedProducts = selectedProducts.map((product, i) => 
       i === index ? { ...product, [field]: value } : product
     );
@@ -104,32 +69,36 @@ const ProductSelection = ({ selectedProducts, onProductsChange }: ProductSelecti
       </div>
 
       {/* Available Products */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredProducts.map((product) => (
-          <Card key={product.id} className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{product.name}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{product.description}</p>
-                  <div className="mt-2 text-sm">
-                    <span className="font-medium">R{product.unitPrice.toFixed(2)}</span>
-                    <span className="text-gray-500 ml-2">({product.quantityOnHand} in stock)</span>
+      {isLoading ? (
+        <div className="text-center py-4">Loading products...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {availableProducts.map((product) => (
+            <Card key={product.id} className="border-l-4 border-l-blue-500">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{product.name}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+                    <div className="mt-2 text-sm">
+                      <span className="font-medium">R{product.unitPrice.toFixed(2)}</span>
+                      <span className="text-gray-500 ml-2">({product.quantityOnHand} in stock)</span>
+                    </div>
                   </div>
+                  <Button
+                    onClick={() => addProduct(product)}
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedProducts.some(p => p.id === product.id)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => addProduct(product)}
-                  size="sm"
-                  variant="outline"
-                  disabled={selectedProducts.some(p => p.id === product.id)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Selected Products */}
       {selectedProducts.length > 0 && (

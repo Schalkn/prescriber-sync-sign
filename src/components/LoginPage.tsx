@@ -5,33 +5,31 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Stethoscope, Lock, User } from "lucide-react";
+import { authService, Doctor } from '../services';
 
 interface LoginPageProps {
-  onLogin: (doctorData: any) => void;
+  onLogin: (doctorData: Doctor) => void;
 }
 
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
-    // Mock login - in real app this would validate against database
-    setTimeout(() => {
-      const mockDoctor = {
-        id: '1',
-        name: 'Dr. Sarah Johnson',
-        title: 'General Practitioner',
-        registrationNumber: 'MP123456',
-        phone: '+27123456789',
-        email: 'dr.johnson@clinic.com'
-      };
-      onLogin(mockDoctor);
+    try {
+      const authResponse = await authService.login({ username, password });
+      onLogin(authResponse.doctor);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -48,6 +46,12 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <div className="relative">

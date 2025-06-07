@@ -6,16 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, X, User } from "lucide-react";
-
-interface Patient {
-  id: string;
-  fullName: string;
-  idNumber: string;
-  dateOfBirth: string;
-  gender: string;
-  contactNumber: string;
-  email: string;
-}
+import { patientService, Patient } from '../services';
+import { useToast } from "@/hooks/use-toast";
 
 interface PatientManagementProps {
   patients: Patient[];
@@ -24,6 +16,7 @@ interface PatientManagementProps {
 
 const PatientManagement = ({ patients, onPatientsChange }: PatientManagementProps) => {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newPatient, setNewPatient] = useState<Omit<Patient, 'id'>>({
     fullName: '',
     idNumber: '',
@@ -32,31 +25,61 @@ const PatientManagement = ({ patients, onPatientsChange }: PatientManagementProp
     contactNumber: '',
     email: ''
   });
+  const { toast } = useToast();
 
-  const addPatient = () => {
+  const addPatient = async () => {
     if (!newPatient.fullName || !newPatient.idNumber || !newPatient.contactNumber) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (Name, ID Number, Contact Number).",
+        variant: "destructive",
+      });
       return;
     }
 
-    const patient: Patient = {
-      ...newPatient,
-      id: Math.random().toString(36).substr(2, 9)
-    };
-
-    onPatientsChange([...patients, patient]);
-    setNewPatient({
-      fullName: '',
-      idNumber: '',
-      dateOfBirth: '',
-      gender: '',
-      contactNumber: '',
-      email: ''
-    });
-    setShowAddForm(false);
+    setIsSubmitting(true);
+    try {
+      const patient = await patientService.createPatient(newPatient);
+      onPatientsChange([...patients, patient]);
+      
+      setNewPatient({
+        fullName: '',
+        idNumber: '',
+        dateOfBirth: '',
+        gender: '',
+        contactNumber: '',
+        email: ''
+      });
+      setShowAddForm(false);
+      
+      toast({
+        title: "Patient Added",
+        description: `${patient.fullName} has been added successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add patient. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const removePatient = (id: string) => {
-    onPatientsChange(patients.filter(patient => patient.id !== id));
+  const removePatient = async (id: string) => {
+    try {
+      await patientService.deletePatient(id);
+      onPatientsChange(patients.filter(patient => patient.id !== id));
+      
+      toast({
+        title: "Patient Removed",
+        description: "Patient has been removed from the prescription.",
+      });
+    } catch (error) {
+      // For mock implementation, still remove from UI
+      onPatientsChange(patients.filter(patient => patient.id !== id));
+    }
   };
 
   const updateNewPatient = (field: keyof Omit<Patient, 'id'>, value: string) => {
@@ -150,8 +173,12 @@ const PatientManagement = ({ patients, onPatientsChange }: PatientManagementProp
             </div>
             
             <div className="flex gap-3 mt-6">
-              <Button onClick={addPatient} className="bg-green-600 hover:bg-green-700">
-                Add Patient
+              <Button 
+                onClick={addPatient} 
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSubmitting ? 'Adding...' : 'Add Patient'}
               </Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>
                 Cancel

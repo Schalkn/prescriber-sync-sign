@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,37 +7,7 @@ import PatientManagement from './PatientManagement';
 import SignatureCapture from './SignatureCapture';
 import SMSOTPVerification from './SMSOTPVerification';
 import { useToast } from "@/hooks/use-toast";
-
-interface Doctor {
-  id: string;
-  name: string;
-  title: string;
-  registrationNumber: string;
-  phone: string;
-  email: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  unitPrice: number;
-  vatRate: number;
-  quantityOnHand: number;
-  quantity: number;
-  repeatFrequency: string;
-  dosageInstructions: string;
-}
-
-interface Patient {
-  id: string;
-  fullName: string;
-  idNumber: string;
-  dateOfBirth: string;
-  gender: string;
-  contactNumber: string;
-  email: string;
-}
+import { authService, prescriptionService, Doctor, Patient, PrescriptionProduct } from '../services';
 
 interface PrescriptionManagerProps {
   doctor: Doctor;
@@ -46,7 +15,7 @@ interface PrescriptionManagerProps {
 }
 
 const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => {
-  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<PrescriptionProduct[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [signature, setSignature] = useState<string | null>(null);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -89,12 +58,23 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
     setShowOTPVerification(false);
 
     try {
-      // Mock PDF generation and email sending
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const prescriptionRequest = {
+        patientIds: patients.map(p => p.id),
+        products: selectedProducts.map(p => ({
+          productId: p.id,
+          quantity: p.quantity,
+          repeatFrequency: p.repeatFrequency,
+          dosageInstructions: p.dosageInstructions,
+          unitPrice: p.unitPrice
+        })),
+        signature: signature!
+      };
+
+      const prescriptions = await prescriptionService.createPrescription(prescriptionRequest);
       
       toast({
         title: "Prescription Created Successfully",
-        description: `${patients.length} prescription(s) have been generated and sent. Orders created in Xero.`,
+        description: `${prescriptions.length} prescription(s) have been generated and sent. Orders created in Xero.`,
       });
 
       // Reset form
@@ -109,6 +89,16 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      onLogout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      onLogout(); // Still logout on error
     }
   };
 
@@ -133,7 +123,7 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
                 <p className="text-sm text-gray-600">Welcome, {doctor.name}</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
+            <Button variant="outline" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
