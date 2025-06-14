@@ -70,12 +70,32 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
         signature: signature!
       };
 
-      const prescriptions = await prescriptionService.createPrescription(prescriptionRequest);
-      
       toast({
-        title: "Prescription Created Successfully",
-        description: `${prescriptions.length} prescription(s) have been generated and sent. Orders created in Xero.`,
+        title: "Processing Prescriptions",
+        description: `Creating ${patients.length} prescription(s), generating PDFs, sending emails, and creating Xero orders...`,
       });
+
+      const prescriptions = await prescriptionService.createPrescription(
+        prescriptionRequest,
+        doctor,
+        patients
+      );
+      
+      const successCount = prescriptions.filter(p => p.status === 'verified').length;
+      const failureCount = prescriptions.length - successCount;
+
+      if (failureCount === 0) {
+        toast({
+          title: "All Prescriptions Created Successfully",
+          description: `${successCount} prescription(s) generated, PDFs emailed to hannesfuel@gmail.com, and Xero orders created.`,
+        });
+      } else {
+        toast({
+          title: "Prescriptions Partially Completed",
+          description: `${successCount} successful, ${failureCount} failed. Check console for details.`,
+          variant: "destructive",
+        });
+      }
 
       // Reset form
       setSelectedProducts([]);
@@ -84,9 +104,10 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create prescription. Please try again.",
+        description: "Failed to create prescriptions. Please try again.",
         variant: "destructive",
       });
+      console.error('Prescription creation failed:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -198,7 +219,7 @@ const PrescriptionManager = ({ doctor, onLogout }: PrescriptionManagerProps) => 
             disabled={isSubmitting}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {isSubmitting ? 'Creating Prescription...' : 'Submit Prescription'}
+            {isSubmitting ? 'Processing Prescriptions...' : 'Submit Prescription'}
           </Button>
         </div>
       </div>
