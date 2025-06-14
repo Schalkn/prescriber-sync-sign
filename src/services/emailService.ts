@@ -16,9 +16,18 @@ export interface SendEmailRequest {
 
 class EmailService {
   async sendEmail(request: SendEmailRequest): Promise<void> {
+    console.log('📧 Starting email send process...');
+    console.log('Email details:', {
+      to: request.to,
+      subject: request.subject,
+      attachmentCount: request.attachments?.length || 0,
+      attachmentSizes: request.attachments?.map(a => ({ name: a.filename, size: a.content.size }))
+    });
+
     // Mock implementation - in production this would call your backend API
     await new Promise(resolve => setTimeout(resolve, 1500));
 
+    console.log('✅ Email sent successfully!');
     console.log('Email would be sent:', {
       to: request.to,
       subject: request.subject,
@@ -44,6 +53,9 @@ class EmailService {
     prescriptionId: string,
     pdfBlob: Blob
   ): Promise<void> {
+    console.log(`📧 Preparing prescription email for ${patientName} (${prescriptionId})`);
+    console.log('PDF blob size:', pdfBlob.size, 'bytes');
+
     const emailRequest: SendEmailRequest = {
       to: 'hannesfuel@gmail.com',
       subject: `Prescription for ${patientName} - ${prescriptionId}`,

@@ -14,6 +14,8 @@ export interface PrescriptionPDFData {
 
 class PDFService {
   async generatePrescriptionPDF(data: PrescriptionPDFData): Promise<Blob> {
+    console.log('Starting PDF generation for prescription:', data.prescriptionId);
+    
     // Create a temporary div to render the prescription
     const tempDiv = document.createElement('div');
     tempDiv.style.position = 'absolute';
@@ -128,6 +130,7 @@ class PDFService {
     document.body.appendChild(tempDiv);
 
     try {
+      console.log('Converting HTML to canvas...');
       // Convert HTML to canvas
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
@@ -135,6 +138,7 @@ class PDFService {
         backgroundColor: '#ffffff'
       });
 
+      console.log('Creating PDF...');
       // Create PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgData = canvas.toDataURL('image/png');
@@ -146,7 +150,9 @@ class PDFService {
 
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       
-      return pdf.output('blob');
+      const blob = pdf.output('blob');
+      console.log('PDF generated successfully, size:', blob.size, 'bytes');
+      return blob;
     } finally {
       document.body.removeChild(tempDiv);
     }
